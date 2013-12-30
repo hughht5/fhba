@@ -5,7 +5,13 @@
   "private": false,
   "dependencies": {
     "url": "*",
-    "path": "*"
+    "path": "*",
+    "multipart" : "*",
+    "events" : "*",
+    "posix" : "*",
+    "formidable@latest" : "*",
+    "mongodb" : "*"
+
   },
   "main": "index.js",
   "scripts": {
