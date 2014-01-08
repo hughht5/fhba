@@ -5,18 +5,35 @@
     util = require('util');
 
 var collection = null;
- var MongoClient = require('mongodb').MongoClient
+var MongoClient = require('mongodb').MongoClient
     , format = require('util').format;
+var cronJob = require('cron').CronJob;
 
 var mongo = require('mongodb');
 var BSON = mongo.BSONPure;
+MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
 
-MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
-  if(err) throw err;
-
+  if(err) throw err; 
   collection = db.collection('uploadedFiles');
+  //collection.ensureIndex({expiryTime: 1});
+
+  //every minute delete files that have expired.
+  new cronJob('* * * * *', function(){
+
+    collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
+      collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
+        console.log(items.length + ' expired files deleted.');
+      });
+    });
+  }, null, true, "America/Los_Angeles");    
 
 
+
+  //if bitcoin payment is received then extend expiry time by 1 minute / satoshi
+  
+
+
+  //create http server
   http.createServer(function(req, res) {
     
     if (req.url == '/upload' && req.method.toLowerCase() == 'post') {
@@ -31,6 +48,13 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //store name of file and details in mongodb
         files.title = fields.title;
+	
+	//store uploaded time
+	files.uploadedDate = new Date().getTime();
+        
+	//TODO store expiry time
+ 	files.expiryTime = new Date().getTime() + (60*1000);
+
         collection.insert(files, function(err, docs) {
 
           id = docs[0]._id;
@@ -63,6 +87,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
             //download file
             console.log('Downloading : ' + item.upload.path);
+
+console.log(item);
 
             var path = require('path');
             var mime = require('mime');
