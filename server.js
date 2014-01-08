@@ -79,7 +79,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
           console.log(address);
           file.bitcoinAddress = address;
 
-          collection.insert(files, function(err, docs) {
+          collection.insert(file, function(err, docs) {
 
             var thisID = docs[0]._id;
 
