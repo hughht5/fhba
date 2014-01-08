@@ -33,7 +33,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       for (var i=0; i<items.length; i++){
         fs.unlink(items[i].upload.path, function (err) {
           if (err) throw err;
-          console.log(items[i]);
           console.log('successfully deleted file.');
         });
       }
