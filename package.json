@@ -9,7 +9,7 @@
     "multipart" : "*",
     "events" : "*",
     "posix" : "*",
-    "formidable@latest" : "*",
+    "formidable" : "*",
     "mongodb" : "*"
 
   },
