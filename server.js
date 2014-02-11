@@ -139,6 +139,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             thisItem.bitcoinAddress = file.bitcoinAddress;
             thisItem.btcBalance = file.btcBalance;
             thisItem.serverTime = new Date().getTime();
+            thisItem.downloadPath = '/download/' + id;
 
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
