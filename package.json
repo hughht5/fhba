@@ -12,8 +12,8 @@
     "posix" : "*",
     "formidable" : "*",
     "bitcoin" : "*",
-    "mongodb" : "*"
-
+    "mongodb" : "*",
+    "cron" : "*"
   },
   "main": "index.js",
   "scripts": {
