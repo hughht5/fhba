@@ -139,7 +139,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             thisItem.bitcoinAddress = file.bitcoinAddress;
             thisItem.btcBalance = file.btcBalance;
             thisItem.serverTime = new Date().getTime();
-            thisItem.downloadPath = '/download/' + id;
+            thisItem.downloadURL = '/download/' + id;
+            thisItem.statusURL = '/status/' + id;
 
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
@@ -192,7 +193,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
               var filestream = fs.createReadStream(file);
               filestream.pipe(res);
-              return res.end();
+
             }else{
               res.writeHead(200, {'content-type': 'text/plain'});
               res.write('File not found.\n\n');
@@ -229,6 +230,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               thisItem.bitcoinAddress = item.bitcoinAddress;
               thisItem.btcBalance = item.btcBalance;
               thisItem.serverTime = new Date().getTime();
+              thisItem.downloadURL = '/download/' + item._id;
+              thisItem.statusURL = '/status/' + item._id;
 
               //send response
               res.writeHead(200, {'content-type': 'application/json'});
