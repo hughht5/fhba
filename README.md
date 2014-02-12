@@ -1,7 +1,5 @@
-fhba
+File Hosting Bitcoin Agent
 ====
-
-#File Hosting Bitcoin Agent
 
 ##Dependancies:
 
