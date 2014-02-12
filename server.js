@@ -4,6 +4,9 @@
     url = require("url"),
     util = require('util');
 
+var path = require('path');
+var mime = require('mime');
+
 var collection = null;
 var MongoClient = require('mongodb').MongoClient
     , format = require('util').format;
@@ -14,7 +17,7 @@ var BSON = mongo.BSONPure;
 var bitcoin = require('bitcoin');
 
 var minutesPerBTCPerMB = 1051200; //2 years in minutes
-
+var minutesBurnedPerDownload = 1; //1 download = 1 minute of storage. Size is accounted for already.
 
 //connect to bitcoin daemon
 var client = new bitcoin.Client({
@@ -70,13 +73,18 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
           if (oldBalance != balance){
 
             //update balance in DB
-            collection.update({ _id: thisID },{ $set: { btcBalance: (balance) } });
+            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
+              if (err) return console.log(err);
+              console.log('BTC balance updated - new balance: ' + balance);
+            });
 
             //extend expiry time by correct amount.
             var btcDiff = balance - oldBalance;
             var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
-            collection.update({ _id: thisID },{ $inc: { expiryTime: (minutesToExtend*1000) } });
-            console.log('extended expiry time by ' + minutesToExtend);
+            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
+              if (err) return console.log(err);
+              console.log('extended expiry time by ' + minutesToExtend);
+            });
 
           }
 
@@ -173,37 +181,58 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
             if (item != null){
 
-              //TODO add reducing expiry time per downloaded MB.
-              //TODO dont let file be downloaded if nothing has been paid.
+              //TODO make users pay part to me part to the owner who uploaded the file. owner btc address should be stored on upload.
 
-              //download file
-              console.log('Downloading : ' + item.upload.path);
 
-              var path = require('path');
-              var mime = require('mime');
+              //Don't let file be downloaded if nothing has been paid.
+              client.getBalance(item.bitcoinAddress, 0, function(err, balance) {
+                if (err) return console.log(err);
 
-              //var file = __dirname + item.upload.path;
-              var file = item.upload.path;
 
-              var filename = path.basename(file);
-              var mimetype = mime.lookup(file);
+                if (balance == 0){
+                  res.writeHead(200, {'content-type': 'text/plain'});
+                  res.write('Please make payment first.');
+                  return res.end();
+                }
 
-              res.setHeader('Content-disposition', 'attachment; filename=' + filename);
-              res.setHeader('Content-type', mimetype);
+                //Reduce expiry time by bandwidth charge/cost
+                minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
+                collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
+                  if (err){
+                    console.log(err);
+                    return
+                  }
+                  if(doc != 1){
+                    console.log('Error - '+doc);
+                    return;
+                  }   
 
-              var filestream = fs.createReadStream(file);
-              filestream.pipe(res);
+                  //download file
+                  console.log('Downloading : ' + item.upload.path);
+
+                  var file = item.upload.path;
+                  var filename = path.basename(file);
+                  var mimetype = mime.lookup(file);
+
+                  res.setHeader('Content-disposition', 'attachment; filename=' + filename);
+                  res.setHeader('Content-type', mimetype);
+
+                  var filestream = fs.createReadStream(file);
+                  filestream.pipe(res);
+
+                }); 
+              });
 
             }else{
               res.writeHead(200, {'content-type': 'text/plain'});
-              res.write('File not found.\n\n');
+              res.write('File not found.');
               return res.end();
             }
 
         });
       }else{
           res.writeHead(200, {'content-type': 'text/plain'});
-          res.write('File not found.\n\n');
+          res.write('File not found.');
           return res.end();
       }
       return;
@@ -240,14 +269,14 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
             }else{
               res.writeHead(200, {'content-type': 'text/plain'});
-              res.write('File not found.\n\n');
+              res.write('File not found.');
               return res.end();
             }
 
         });
       }else{
           res.writeHead(200, {'content-type': 'text/plain'});
-          res.write('File not found.\n\n');
+          res.write('File not found.');
           res.end();
       }
       return;
