@@ -1,27 +1,25 @@
- var formidable = require('formidable'),
+var formidable = require('formidable'),
     http = require('http'),
     fs = require('fs'),
     url = require("url"),
-    util = require('util');
+    util = require('util'),
+    request = require('request'),
+    btcAddr = require('bitcoin-address'),
+    path = require('path'),
+    mime = require('mime'),
+    MongoClient = require('mongodb').MongoClient,
+    format = require('util').format,
+    cronJob = require('cron').CronJob,
+    mongo = require('mongodb'),
+    BSON = mongo.BSONPure,
+    bitcoin = require('bitcoin'),
+    logly = require( 'logly' );
 
-var request = require('request');
 
-
-var path = require('path');
-var mime = require('mime');
-
-var collection = null;
-var MongoClient = require('mongodb').MongoClient
-    , format = require('util').format;
-var cronJob = require('cron').CronJob;
-
-var mongo = require('mongodb');
-var BSON = mongo.BSONPure;
-var bitcoin = require('bitcoin');
-
-var minutesPerBTCPerMB = 1051200; //2 years in minutes
-var minutesBurnedPerDownload = 10; //1 download = 10 minutes of storage. Size is accounted for already.
-var margin = 1.5; //margin charged
+var minutesPerBTCPerMB = 1051200, //2 years in minutes
+    minutesBurnedPerDownload = 10, //1 download = 10 minutes of storage. Size is accounted for already.
+    margin = 1.5, //margin charged
+    collection = null;
 
 //connect to bitcoin daemon
 var client = new bitcoin.Client({
@@ -31,6 +29,8 @@ var client = new bitcoin.Client({
   pass: '6Yr8ZRmK53m59bCZHt3ybeMFpUi5KQfC5uC7qnHQqnbk'
 }); 
 
+logly.name( 'bitcoin agent' );
+logly.mode( 'debug' );
 
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
 
@@ -45,7 +45,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
       collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
         console.log(items.length + ' expired files deleted.');
-       
       });
 
       //remove the actual files from disk
@@ -60,47 +59,48 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
   }, null, true);    
 
   //every 10 seconds check if payment is received
-
-
   var paymentCron = new cronJob('*/10 * * * * *', function(){
 
     collection.find().toArray(function(err, items) {
-
+      if (err) return logly.error(err);
+      
       for (var i=0; i<items.length; i++){
 
         var thisID = items[i]._id.toString();
-        var oldBalance = items[i].btcBalance;
+        var oldBalance = parseFloat(items[i].btcBalance);
         var filesize = items[i].upload.size/1000000; //size in MB
+        var thisbitcoinAddress = items[i].bitcoinAddress;
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         //client.getBalance(items[i].bitcoinAddress, 0, function(err, balance) {
-        request('https://blockchain.info/address/'+items[i].bitcoinAddress+'?format=json', function (error, response, body) {
+        request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
           if (!error && response.statusCode == 200) {
 
             var json = JSON.parse(body);
             var balance = json.total_received / 100000000;
 
-            if (err) return console.log(err);
+            logly.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
+
 
             if (oldBalance != balance){
 
               //update balance in DB
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
-                if (err) return console.log(err);
-                console.log('BTC balance updated - new balance: ' + balance);
+                if (err) return logly.error(err);
+                logly.log('BTC balance updated for wallet ID ' + thisbitcoinAddress + ' - new balance: ' + balance)
               });
 
               //extend expiry time by correct amount.
               var btcDiff = balance - oldBalance;
               var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
-                if (err) return console.log(err);
-                console.log('extended expiry time by ' + minutesToExtend);
+                if (err) return logly.error(err);
+                logly.log('Extended expiry time by ' + minutesToExtend);
               });
 
             }
           }else{
-            console.log('Cannot connect to blockexplorer.com');
+            logly.error('Cannot connect to blockexplorer.com');
           }
 
         }); 
@@ -139,15 +139,13 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
           if (err) return console.log(err);
-          //console.log(address);
+
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
 
           file.btcDownloadCost = Math.max(file.referralBTCPrice * margin, (file.upload.size / 1000000 / minutesPerBTCPerMB * minutesBurnedPerDownload * margin) + parseFloat(file.referralBTCPrice));//max of referral * margin or (our base costs + referral price) * margin - accounts for very low referral cost uploads.
 
           collection.insert(file, function(err, docs) {
-
-            //var thisID = docs[0]._id;
 
             id = docs[0]._id;
 
@@ -172,14 +170,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
             res.write(JSON.stringify(thisItem));
-
-
-            /*res.writeHead(200, {'content-type': 'text/html'});
-            res.write('received upload:<br/><br/>');
-            res.write('To retrieve your file use this link: <a href="/download/'+id+'">'+id+'</a><br/><br/>');
-            res.write('Your file will be deleted after 10 minutes. For every 1 satoshi sent to this address your file will stay online for another '+minutesPerBTCPerMB/100000000*60+' seconds per MB in size: <a target="_blank" href="https://blockchain.info/address/'+ address+'">'+address+'</a><br/><br/>');
-            //debug   res.end(util.inspect({fields: fields, files: files}));
-            //*/
             return res.end();
             
           });
@@ -200,7 +190,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         fileID = fileID.substring(0, req.url.indexOf('/?payment=') - 10);
 
-        var address = req.url.substring(req.url.indexOf('/?payment=') + 10);
+        var addressacc = req.url.substring(req.url.indexOf('/?payment=') + 10);
+        var address = addressacc.substring(0, addressacc.indexOf('&account='));
+        var bitcoindAccount = addressacc.substring(addressacc.indexOf('&account=') + 9);
 
         //check payment is received
         //client.cmd('getbalance', address, 0, function(err, balance){ //this doesn't work as it's based on account not addresses
@@ -209,13 +201,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             var json = JSON.parse(body);
             var balance = json.total_received / 100000000;
 
-            //console.log('address = '+address);
-            //console.log('balance = '+balance);
-
             collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
               if (item != null){
                 if (balance >= item.btcDownloadCost){
-                  //console.log(item);
 
                   if (addressInItemDownloadAddresses(address,item)){ //address could be any address - check it's in the array
 
@@ -233,7 +221,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     filestream.pipe(res);
 
                     //delete download url
-                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
+                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                       if (err) return console.log(err);
                       if(doc != 1) return console.log('Error - ' + doc);
 
@@ -261,6 +249,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               }
             });
           }else{
+            logly.error(error);
             res.writeHead(200, {'content-type': 'text/plain'});
             res.write('Error. Cannot connect to blockexplorer.com');
             return res.end();
@@ -278,14 +267,16 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
               //two file types: 1 - prepaid by uploader, anyone who downloads pays and proceeds are split between admin, program (expiry extension), and uploader
-              if (item.referralBTCAddress.length > 5){ //if referral address exists. TODO validate address
+              if (btcAddr.validate(item.referralBTCAddress)){ //if referral address exists.
 
                 //Create new btcaddress for downloader with 15 minutes to pay
                 //After payment the user can download using currentURL?payment=NewBitcoinAddress
-                client.cmd('getnewaddress',function(err,address){
+                //attach address to account:
+                var bitcoindAccount = fileID+(new Date().getTime());
+                client.cmd('getnewaddress', bitcoindAccount, function(err,address){
                   if (err) return console.log(err);
 
-                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
+                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                     if (err) return console.log(err);
 
                     if(doc != 1){
@@ -293,20 +284,18 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       return;
                     }
 
-                    //console.log(doc);
-
                     console.log("Added address " + address + "to file.");
 
                     var responseItem = {
                       amountToPay: item.btcDownloadCost,
                       timeToPay: '15 minutes',
                       paymentAddress: address,
-                      downloadLink: '/download/' + fileID + '/?payment=' + address
+                      downloadLink: '/download/' + fileID + '/?payment=' + address + '&account=' + bitcoindAccount
                     };
 
                     //delete download address after 15 minutes if btc payment is not complete.
                     var myTimeout = setTimeout(function() {
-                      collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
+                      collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                         if (err) return console.log(err);
                         if(doc != 1) return console.log('Error - ' + doc);
                         console.log('Added new address for download payment');
@@ -317,7 +306,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     var myInterval = setInterval(function() {
 
                       //if payment not made delete the download address
-
                       request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
                         if (!error && response.statusCode == 200) {
 

@@ -15,7 +15,8 @@
     "mongodb" : "*",
     "cron" : "*",
     "request" : "*",
-    "bitcoin-address" : "*"
+    "bitcoin-address" : "*",
+    "logly" : "*"
   },
   "main": "index.js",
   "scripts": {
