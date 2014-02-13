@@ -35,7 +35,7 @@ var client = new bitcoin.Client({
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
 
   if(err) throw err; 
-  collection = db.collection('uploadedFiles3');
+  collection = db.collection('uploadedFiles4');
 
   //collection.ensureIndex({expiryTime: 1});
 
@@ -68,8 +68,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
       for (var i=0; i<items.length; i++){
 
+        var thisID = items[i]._id.toString();
         var oldBalance = items[i].btcBalance;
-        var thisID = items[i]._id;
         var filesize = items[i].upload.size/1000000; //size in MB
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
@@ -133,8 +133,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       	//store uploaded time
       	file.uploadedDate = new Date().getTime();
               
-      	//store expiry time 10 minutes in the future
-        file.expiryTime = new Date().getTime() + (10*60*1000);
+      	//store expiry time 30 minutes in the future
+        file.expiryTime = new Date().getTime() + (30*60*1000);
 
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
@@ -276,7 +276,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
             if (item != null){
 
-              //TODO make users pay part to me part to the owner who uploaded the file. owner btc address should be stored on upload.
 
               //two file types: 1 - prepaid by uploader, anyone who downloads pays and proceeds are split between admin, program (expiry extension), and uploader
               if (item.referralBTCAddress.length > 5){ //if referral address exists. TODO validate address
@@ -335,25 +334,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                             
                             x++;
 
-                          }/*else{
-                            //paid
-                            clearTimeout(myTimeout); //stop it being deleted.
-                            clearInterval(myInterval); //stop this interval being called again.
-
-                            collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
-                              if (err) return console.log(err);
-                              if(doc != 1) return console.log('Error - ' + doc);
-
-
-                              collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: true} } }, function(err, doc){
-                                if (err) return console.log(err);
-                                if(doc != 1) return console.log('Error - ' + doc);
-
-                                console.log('Payment received for download.');
-
-                              });
-                            });
-                          }//*/
+                          }
                         }else{
                           res.writeHead(200, {'content-type': 'text/plain'});
                           res.write('Error. Cannot connect to blockexplorer.com');
@@ -375,7 +356,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
                 //Don't let file be downloaded if nothing has been paid.
-                request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+                var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
+
+                request(blockchainurl, function (error, response, body) {
                   if (!error && response.statusCode == 200) {
 
                     var json = JSON.parse(body);
@@ -482,6 +465,10 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     res.writeHead(200, {'content-type': 'text/html'});
     res.end(
       '<form action="/upload" enctype="multipart/form-data" method="post">'+
+      '<p>This project is in alpha testing. Do not assume anything will work, it might swallow your money.</p>'+
+      '<p>There are 2 ways of using this system:'+
+      '<br/>1 : Upload a file, and pay for it to remain online. Every paid satoshi the file stays online for more time, every download the timer is cut short a bit.'+
+      '<br/>2 : Upload a file with a refferal bitcoin address and a price. Every time someone downloads it they will pay that price + 50%. The price you set is paid to the referral btc address each time someone pays to download, and the 50% goes towards hosting that file for longer.</p>'+
       '<input type="text" name="title">Enter a title (optional)<br>'+
       '<input type="text" name="referralBTCAddress">Enter a refferal address (optional)<br>'+
       '<input type="text" name="referralBTCPrice">Enter a refferal price (optional)<br>'+
