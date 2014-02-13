@@ -13,7 +13,8 @@
     "formidable" : "*",
     "bitcoin" : "*",
     "mongodb" : "*",
-    "cron" : "*"
+    "cron" : "*",
+    "request" : "*"
   },
   "main": "index.js",
   "scripts": {

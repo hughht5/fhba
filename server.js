@@ -4,6 +4,9 @@
     url = require("url"),
     util = require('util');
 
+var request = require('request');
+
+
 var path = require('path');
 var mime = require('mime');
 
@@ -70,25 +73,34 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var filesize = items[i].upload.size/1000000; //size in MB
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
-        client.getBalance(items[i].bitcoinAddress, 0, function(err, balance) {
-          if (err) return console.log(err);
+        //client.getBalance(items[i].bitcoinAddress, 0, function(err, balance) {
+        request('https://blockchain.info/address/'+items[i].bitcoinAddress+'?format=json', function (error, response, body) {
+          if (!error && response.statusCode == 200) {
 
-          if (oldBalance != balance){
+            var json = JSON.parse(body);
+            var balance = json.total_received / 100000000;
 
-            //update balance in DB
-            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
-              if (err) return console.log(err);
-              console.log('BTC balance updated - new balance: ' + balance);
-            });
+            if (err) return console.log(err);
 
-            //extend expiry time by correct amount.
-            var btcDiff = balance - oldBalance;
-            var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
-            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
-              if (err) return console.log(err);
-              console.log('extended expiry time by ' + minutesToExtend);
-            });
+            if (oldBalance != balance){
 
+              //update balance in DB
+              collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
+                if (err) return console.log(err);
+                console.log('BTC balance updated - new balance: ' + balance);
+              });
+
+              //extend expiry time by correct amount.
+              var btcDiff = balance - oldBalance;
+              var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
+              collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
+                if (err) return console.log(err);
+                console.log('extended expiry time by ' + minutesToExtend);
+              });
+
+            }
+          }else{
+            console.log('Cannot connect to blockexplorer.com');
           }
 
         }); 
@@ -122,7 +134,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       	file.uploadedDate = new Date().getTime();
               
       	//store expiry time 10 minutes in the future
-        file.expiryTime = new Date().getTime() + (2*60*1000);
+        file.expiryTime = new Date().getTime() + (10*60*1000);
 
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
@@ -131,8 +143,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
 
-          file.btcDownloadCost = Math.max(file.referralBTCPrice * margin, (file.upload.size / 1000000 / minutesPerBTCPerMB * minutesBurnedPerDownload * margin) + file.referralBTCPrice);//max of referral * margin or (our base costs + referral price) * margin - accounts for very low referral cost uploads.
-
+          file.btcDownloadCost = Math.max(file.referralBTCPrice * margin, (file.upload.size / 1000000 / minutesPerBTCPerMB * minutesBurnedPerDownload * margin) + parseFloat(file.referralBTCPrice));//max of referral * margin or (our base costs + referral price) * margin - accounts for very low referral cost uploads.
 
           collection.insert(file, function(err, docs) {
 
@@ -192,52 +203,68 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var address = req.url.substring(req.url.indexOf('/?payment=') + 10);
 
         //check payment is received
-        client.getBalance(address, 0, function(err, balance) {
-          if (err) return console.log(err);
+        //client.cmd('getbalance', address, 0, function(err, balance){ //this doesn't work as it's based on account not addresses
+        request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+          if (!error && response.statusCode == 200) {
+            var json = JSON.parse(body);
+            var balance = json.total_received / 100000000;
 
-          collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
-            if (item != null){
-              if (balance < item.btcDownloadCost){
+            //console.log('address = '+address);
+            //console.log('balance = '+balance);
 
-                if (addressInItemDownloadAddresses(address,item)){ //address could be any address - check it's in the array
+            collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
+              if (item != null){
+                if (balance >= item.btcDownloadCost){
+                  //console.log(item);
 
-                  //allow download (once) 
-                  console.log('Downloading paid file : ' + item.upload.path);
+                  if (addressInItemDownloadAddresses(address,item)){ //address could be any address - check it's in the array
 
-                  var file = item.upload.path;
-                  var filename = path.basename(file);
-                  var mimetype = mime.lookup(file);
+                    //allow download (once) 
+                    console.log('Downloading paid file : ' + item.upload.path);
 
-                  res.setHeader('Content-disposition', 'attachment; filename=' + filename);
-                  res.setHeader('Content-type', mimetype);
+                    var file = item.upload.path;
+                    var filename = path.basename(file);
+                    var mimetype = mime.lookup(file);
 
-                  var filestream = fs.createReadStream(file);
-                  filestream.pipe(res);
-                  
-                  //delete download url
-                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: true} } }, function(err, doc){
-                    if (err) return console.log(err);
-                    if(doc != 1) return console.log('Error - ' + doc);
-                    console.log('Deleted download address after single paid download.');
-                  });
+                    res.setHeader('Content-disposition', 'attachment; filename=' + filename);
+                    res.setHeader('Content-type', mimetype);
+
+                    var filestream = fs.createReadStream(file);
+                    filestream.pipe(res);
+
+                    //delete download url
+                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
+                      if (err) return console.log(err);
+                      if(doc != 1) return console.log('Error - ' + doc);
+
+                      console.log('Deleted download address after single paid download.');
+                    });
+
+                    //make bitcoin payments: referralBTCPrice to the referralBTCAddress, 50% of what is left to the downloaded file's fee address, and the rest to the owner.
+                    //TODO
+
+                  }else{
+                    res.writeHead(200, {'content-type': 'text/plain'});
+                    res.write('Address not linked to file.');
+                    return res.end();
+                  }
 
                 }else{
                   res.writeHead(200, {'content-type': 'text/plain'});
-                  res.write('Address not linked to file.');
+                  res.write('No payment received.');
                   return res.end();
                 }
-
               }else{
                 res.writeHead(200, {'content-type': 'text/plain'});
-                res.write('No payment received.');
+                res.write('Error. Item has expired.');
                 return res.end();
               }
-            }else{
-              res.writeHead(200, {'content-type': 'text/plain'});
-              res.write('Error.');
-              return res.end();
-            }
-          });
+            });
+          }else{
+            res.writeHead(200, {'content-type': 'text/plain'});
+            res.write('Error. Cannot connect to blockexplorer.com');
+            return res.end();
+          }
         });
 
         return;
@@ -267,7 +294,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       return;
                     }
 
-                    console.log(doc);
+                    //console.log(doc);
 
                     console.log("Added address " + address + "to file.");
 
@@ -291,39 +318,47 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     var myInterval = setInterval(function() {
 
                       //if payment not made delete the download address
-                      client.getBalance(address, 0, function(err, balance) {
-                        if (err) return console.log(err);
 
-                        if (balance < item.btcDownloadCost){
-                          //if 15 minutes past then address will be deleted by timeout above.
-                          
-                          //if 15 minutes past then stop this interval
-                          if(x >= 90){
+                      request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+                        if (!error && response.statusCode == 200) {
+
+                          var json = JSON.parse(body);
+                          var balance = json.total_received / 100000000;
+
+                          if (balance < item.btcDownloadCost){  //not paid
+                            //if 15 minutes past then address will be deleted by timeout above.
+                            
+                            //if 15 minutes past then stop this interval
+                            if(x >= 90){
+                              clearInterval(myInterval); //stop this interval being called again.
+                            }
+                            
+                            x++;
+
+                          }/*else{
+                            //paid
+                            clearTimeout(myTimeout); //stop it being deleted.
                             clearInterval(myInterval); //stop this interval being called again.
-                          }
-                          
-                          x++;
 
-                        }else{
-                          //paid
-                          clearTimeout(myTimeout); //stop it being deleted.
-                          clearInterval(myInterval); //stop this interval being called again.
-
-                          collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
-                            if (err) return console.log(err);
-                            if(doc != 1) return console.log('Error - ' + doc);
-
-
-                            collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: true} } }, function(err, doc){
+                            collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false} } }, function(err, doc){
                               if (err) return console.log(err);
                               if(doc != 1) return console.log('Error - ' + doc);
 
-                              console.log('Payment received for download.');
 
+                              collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: true} } }, function(err, doc){
+                                if (err) return console.log(err);
+                                if(doc != 1) return console.log('Error - ' + doc);
+
+                                console.log('Payment received for download.');
+
+                              });
                             });
-                          });
+                          }//*/
+                        }else{
+                          res.writeHead(200, {'content-type': 'text/plain'});
+                          res.write('Error. Cannot connect to blockexplorer.com');
+                          return res.end();
                         }
-
                       });
 
                     }, 10 * 1000); //10 seconds
@@ -340,40 +375,47 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
                 //Don't let file be downloaded if nothing has been paid.
-                client.getBalance(item.bitcoinAddress, 0, function(err, balance) {
-                  if (err) return console.log(err);
+                request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+                  if (!error && response.statusCode == 200) {
 
+                    var json = JSON.parse(body);
+                    var balance = json.total_received / 100000000;
 
-                  if (balance == 0){
+                    if (balance == 0){
+                      res.writeHead(200, {'content-type': 'text/plain'});
+                      res.write('Please make payment first.');
+                      return res.end();
+                    }
+
+                    //Reduce expiry time by bandwidth charge/cost
+                    minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
+                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
+                      if (err) return console.log(err);
+
+                      if(doc != 1){
+                        console.log('Error - ' + doc);
+                        return;
+                      }   
+
+                      //download file
+                      console.log('Downloading : ' + item.upload.path);
+
+                      var file = item.upload.path;
+                      var filename = path.basename(file);
+                      var mimetype = mime.lookup(file);
+
+                      res.setHeader('Content-disposition', 'attachment; filename=' + filename);
+                      res.setHeader('Content-type', mimetype);
+
+                      var filestream = fs.createReadStream(file);
+                      filestream.pipe(res);
+
+                    }); 
+                  }else{
                     res.writeHead(200, {'content-type': 'text/plain'});
-                    res.write('Please make payment first.');
+                    res.write('Error. Cannot connect to blockexplorer.com');
                     return res.end();
                   }
-
-                  //Reduce expiry time by bandwidth charge/cost
-                  minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
-                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
-                    if (err) return console.log(err);
-
-                    if(doc != 1){
-                      console.log('Error - ' + doc);
-                      return;
-                    }   
-
-                    //download file
-                    console.log('Downloading : ' + item.upload.path);
-
-                    var file = item.upload.path;
-                    var filename = path.basename(file);
-                    var mimetype = mime.lookup(file);
-
-                    res.setHeader('Content-disposition', 'attachment; filename=' + filename);
-                    res.setHeader('Content-type', mimetype);
-
-                    var filestream = fs.createReadStream(file);
-                    filestream.pipe(res);
-
-                  }); 
                 });
               }
 
