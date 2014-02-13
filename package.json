@@ -14,7 +14,8 @@
     "bitcoin" : "*",
     "mongodb" : "*",
     "cron" : "*",
-    "request" : "*"
+    "request" : "*",
+    "bitcoin-address" : "*"
   },
   "main": "index.js",
   "scripts": {
