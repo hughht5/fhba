@@ -1,16 +1,19 @@
 File Hosting Bitcoin Agent
 ====
 
+##WARNING
+This project is in early development. It will swallow bitcoins that are thrown it's way. Use with caution.
+
 ##Dependancies:
 
 ###bitcoind
-sudo aptitude install python-software-properties
+sudo apt-get install python-software-properties
 
 sudo add-apt-repository ppa:bitcoin/bitcoin
 
-sudo aptitude update
+sudo apt-get update
 
-sudo aptitude install bitcoind
+sudo apt-get install bitcoind
 
 mkdir ~/.bitcoin/
 
