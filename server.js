@@ -13,7 +13,9 @@ var formidable = require('formidable'),
     mongo = require('mongodb'),
     BSON = mongo.BSONPure,
     bitcoin = require('bitcoin'),
-    logly = require( 'logly' );
+    logly = require( 'logly' ),
+    config = require('./config');
+
 
 
 var minutesPerBTCPerMB = 1051200, //2 years in minutes
@@ -25,8 +27,8 @@ var minutesPerBTCPerMB = 1051200, //2 years in minutes
 var client = new bitcoin.Client({
   host: 'localhost',
   port: 8332,
-  user: 'hughht5',
-  pass: '6Yr8ZRmK53m59bCZHt3ybeMFpUi5KQfC5uC7qnHQqnbk'
+  user: config.bitcoinRPC.user,
+  pass: config.bitcoinRPC.password
 }); 
 
 logly.name( 'bitcoin agent' );
