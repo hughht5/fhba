@@ -40,7 +40,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
   if(err) throw err; 
-  collection = db.collection('uploadedFiles4');
+  collection = db.collection('uploadedFiles');
 
   logly.log('Connection to mongo complete');
 
