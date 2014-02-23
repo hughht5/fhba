@@ -33,14 +33,7 @@ var client = new bitcoin.Client({
   pass: '123'
 }); 
 
-client.cmd('settxfee', baseTxFee,function(err,result){
-  if (err){
-    logger.error('Error setting TX fee');
-    logger.error(err);
-  }else{
-    logger.log('TX fee set to ' + baseTxFee);
-  }
-});
+settxfee(baseTxFee);
 
 //logger.name( 'bitcoin agent' );
 //logger.mode( 'debug' );
@@ -582,6 +575,18 @@ function addressInItemDownloadAddresses(address, item){
   }
 
   return false;
+}
+
+//set tx fee for bitcoin transactions
+function settxfee(btc){
+  client.cmd('settxfee', btc,function(err,result){
+    if (err){
+      logger.error('Error setting TX fee');
+      logger.error(err);
+    }else{
+      logger.log('TX fee set to ' + baseTxFee);
+    }
+  });
 }
 
 
