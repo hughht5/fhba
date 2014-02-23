@@ -26,9 +26,9 @@ var minutesPerBTCPerMB = 1051200, //2 years in minutes
 //connect to bitcoin daemon
 var client = new bitcoin.Client({
   host: 'localhost',
-  port: config.bitcoinRPC.port,
-  user: config.bitcoinRPC.user,
-  pass: config.bitcoinRPC.password
+  port: 19001,
+  user: 'admin1',
+  pass: '123'
 }); 
 
 logly.name( 'bitcoin agent' );
@@ -145,7 +145,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
-          if (err) return logly.error(err);
+          if (err) return logly.log(err);
 
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
