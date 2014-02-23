@@ -78,6 +78,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var filesize = items[i].upload.size/1000000; //size in MB
         var thisbitcoinAddress = items[i].bitcoinAddress;
         var thisbitcoinAccount = items[i].bitcoinAccount;
+        logger.debug(thisbitcoinAccount);
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
