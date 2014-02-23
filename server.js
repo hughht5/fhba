@@ -85,8 +85,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     });
   }, null, true);    
 
-  //every 10 seconds check if payment is received
-  var paymentCron = new cronJob('*/10 * * * * *', function(){
+  //every 20 seconds check if payment is received
+  var paymentCron = new cronJob('*/20 * * * * *', function(){
 
     collection.find().toArray(function(err, items) {
       if (err) return logger.error(err);
