@@ -3,7 +3,7 @@ var formidable = require('formidable'),
     fs = require('fs'),
     url = require("url"),
     util = require('util'),
-    request = require('request'),
+    //request = require('request'),
     btcAddr = require('bitcoin-address'),
     path = require('path'),
     mime = require('mime'),
@@ -21,6 +21,8 @@ var logger = require('tracer').console();
 var minutesPerBTCPerMB = 1051200, //2 years in minutes
     minutesBurnedPerDownload = 10, //1 download = 10 minutes of storage. Size is accounted for already.
     margin = 1.5, //margin charged
+    profitWallet = 'mwPt7uzoJjn9218KirVWvYPfHtvbBR7Kjs',
+    profitAccountName = 'profits',
     collection = null;
 
 //connect to bitcoin daemon
@@ -51,14 +53,29 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
     collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
 
-      //TODO send btc profits for that account to owner
-
       collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
         console.log(items.length + ' expired files deleted.');
       });
 
       //remove the actual files from disk
       for (var i=0; i<items.length; i++){
+        //TODO send btc profits for that account to owner
+        //get balance
+        client.getBalance(items[i].bitcoinAccount, 0, function(err, balance) {
+          if (err) {
+            logger.error(err);
+          }else{
+            //move balance
+            client.cmd('move', items[i].bitcoinAccount, profitAccountName, function(err, result){
+              if (err) {
+                logger.error(err);
+              }else{
+                logger.log('Profits moved to dividend account.'+result);
+              }
+            });
+          }
+        });
+
         fs.unlink(items[i].upload.path, function (err) {
           if (err) throw err;
           console.log('successfully deleted file.');
@@ -145,7 +162,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       	file.uploadedDate = new Date().getTime();
               
       	//store expiry time 30 minutes in the future
-        file.expiryTime = new Date().getTime() + (30*60*1000);
+        file.expiryTime = new Date().getTime() + (2*60*1000);
 
         //set account name to current time - TODO update this to something more sensible
         file.bitcoinAccount = '' + new Date().getTime();//
