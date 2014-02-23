@@ -109,6 +109,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             //var balance = json.total_received / 100000000;
           if (!err) {
 
+            console.log(items[i]);
             logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
 
 
