@@ -63,7 +63,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
 
       collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
-        console.log(items.length + ' expired files deleted.');
+        if(items.length > 0){
+          logger.log(items.length + ' expired files deleted.');
+        }
       });
 
       //remove the actual files from disk
@@ -91,7 +93,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         fs.unlink(thisItem.upload.path, function (err) {
           if (err) throw err;
-          console.log('successfully deleted file.');
+          logger.log('successfully deleted file.');
         });
       });
 
@@ -194,7 +196,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             id = docs[0]._id;
 
             collection.count(function(err, count) {
-              console.log(format("Uploaded file count since last reset = %s", count));
+              logger.log(format("Uploaded file count since last reset = %s", count));
             });
 
             //return only public items
@@ -256,7 +258,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                   if (addressInItemDownloadAddresses(address,item)){ //address could be any address - check it's in the array
 
                     //allow download (once) 
-                    console.log('Downloading paid file : ' + item.upload.path);
+                    logger.log('Downloading paid file : ' + item.upload.path);
 
                     var file = item.upload.path;
                     var filename = path.basename(file);
@@ -271,9 +273,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     //delete download url
                     collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                       if (err) return logger.error(err);
-                      if(doc != 1) return console.log('Error - ' + doc);
+                      if(doc != 1) return logger.error('Error - ' + doc);
 
-                      console.log('Deleted download address after single paid download.');
+                      logger.log('Deleted download address after single paid download.');
                     });
 
                     //make bitcoin payments: referralBTCPrice to the referralBTCAddress, 50% of what is left to the downloaded file's fee address, and the rest to the owner.
@@ -358,13 +360,13 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               //attach address to account:
               var bitcoindAccount = fileID+(new Date().getTime());
               client.cmd('getnewaddress', bitcoindAccount, function(err,address){
-                if (err) return console.log(err);
+                if (err) return logger.error(err);
 
                 collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
-                  if (err) return console.log(err);
+                  if (err) return logger.error(err);
 
                   if(doc != 1){
-                    console.log('Error - ' + doc);
+                    logger.error('Error - ' + doc);
                     return;
                   }
 
@@ -380,8 +382,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                   //delete download address after 15 minutes if btc payment is not complete.
                   var myTimeout = setTimeout(function() {
                     collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
-                      if (err) return console.log(err);
-                      if(doc != 1) return console.log('Error - ' + doc);
+                      if (err) return logger.error(err);
+                      if(doc != 1) return logger.error('Error - ' + doc);
                       logger.log('Added new address for download payment');
                     });
                   }, 15 * 60 * 1000); //15 minutes
@@ -451,15 +453,15 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                   //Reduce expiry time by bandwidth charge/cost
                   minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
                   collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
-                    if (err) return console.log(err);
+                    if (err) return logger.error(err);
 
                     if(doc != 1){
-                      console.log('Error - ' + doc);
+                      logger.error('Error - ' + doc);
                       return;
                     }   
 
                     //download file
-                    console.log('Downloading : ' + item.upload.path);
+                    logger.log('Downloading : ' + item.upload.path);
 
                     var file = item.upload.path;
                     var filename = path.basename(file);
