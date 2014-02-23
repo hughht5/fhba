@@ -16,7 +16,8 @@
     "cron" : "*",
     "request" : "*",
     "bitcoin-address" : "*",
-    "logly" : "*"
+    "logly" : "*",
+    "tracer" : "*"
   },
   "main": "index.js",
   "scripts": {
