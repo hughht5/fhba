@@ -174,7 +174,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       	file.uploadedDate = new Date().getTime();
               
       	//store expiry time 30 minutes in the future
-        file.expiryTime = new Date().getTime() + (2*60*1000);
+        file.expiryTime = new Date().getTime() + (30*60*1000);
 
         //set account name to current time - TODO update this to something more sensible
         file.bitcoinAccount = '' + new Date().getTime();//
