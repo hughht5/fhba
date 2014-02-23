@@ -27,7 +27,7 @@ var minutesPerBTCPerMB = 1051200, //2 years in minutes
 var client = new bitcoin.Client({
   host: 'localhost',
   port: 19011,
-  user: 'admin1',
+  user: 'admin2',
   pass: '123'
 }); 
 
