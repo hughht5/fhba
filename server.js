@@ -61,7 +61,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       items.forEach(function(thisItem) {
 
         
-        //TODO send btc profits for that account to owner
+        //send btc profits for that account to owner
         //get balance
         client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
           if (err) {
