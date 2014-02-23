@@ -40,7 +40,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
   if(err) throw err; 
-  collection = db.collection('uploadedFilesA');
+  collection = db.collection('uploadedFilesB');
 
   logger.log('Connection to mongo complete');
 
@@ -108,7 +108,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
             }
           }else{
-            logger.error('Cannot connect to blockexplorer.com');
+            logger.error('Cannot connect to blockchain.info');
           }
 
         }); 
