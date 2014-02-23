@@ -357,13 +357,15 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
                 //Don't let file be downloaded if nothing has been paid.
-                var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
+                //var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
+                //request(blockchainurl, function (error, response, body) {
 
-                request(blockchainurl, function (error, response, body) {
-                  if (!error && response.statusCode == 200) {
-
-                    var json = JSON.parse(body);
-                    var balance = json.total_received / 100000000;
+                client.getBalance(item.bitcoindAccount, 0, function(err, balance) {
+                //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+                  //if (!error && response.statusCode == 200) {
+                    //var json = JSON.parse(body);
+                    //var balance = json.total_received / 100000000;
+                  if (!err) {
 
                     if (balance == 0){
                       res.writeHead(200, {'content-type': 'text/plain'});
