@@ -76,6 +76,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
           if (err) {
             logger.error(err);
+          }else if (balance == 0){
+            logger.log('No bitcoins paid for this expired file.');
+          }
           }else{
             //move balance
             client.cmd('move', thisItem.bitcoinAccount, profitAccountName, balance, 0, function(err, result){
@@ -291,7 +294,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       if (err) {
                         logger.error(err);
                       }else{
-                        logger.log('Referral paid to uploader. '+result);
+                        logger.log(referralFee + 'BTC referral paid to uploader. '+result);
                       }
                     });
 
@@ -300,7 +303,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       if (err) {
                         logger.error(err);
                       }else{
-                        logger.log('Payment made to extend expiry time. '+result);
+                        logger.log(uploadExtentionFee + 'BTC Payment made to extend expiry time. '+result);
                       }
                     });
 
@@ -309,7 +312,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       if (err) {
                         logger.error(err);
                       }else{
-                        logger.log('Profits moved to dividend account. '+result);
+                        logger.log(profitFee + 'BTC Profits moved to dividend account. '+result);
                       }
                     });
                     
