@@ -35,9 +35,6 @@ var client = new bitcoin.Client({
 
 settxfee(baseTxFee);
 
-//logger.name( 'bitcoin agent' );
-//logger.mode( 'debug' );
-
 
 logger.log('Connecting to mongo');
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
@@ -49,48 +46,11 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
   logger.log('Connection to mongo complete');
 
   //collection.ensureIndex({expiryTime: 1});
+  //TODO set indexes
 
   //every minute delete files that have expired.
   new cronJob('* * * * *', function(){
-
-    collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
-
-      collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
-        if(items.length > 0){
-          logger.log(items.length + ' expired files deleted.');
-        }
-      });
-
-      //remove the actual files from disk
-      items.forEach(function(thisItem) {
-
-        
-        //send btc profits for that account to owner
-        //get balance
-        client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
-          if (err) {
-            logger.error(err);
-          }else if (balance == 0){
-            logger.log('No bitcoins paid for this expired file.');
-          }else{
-            //move balance
-            client.cmd('move', thisItem.bitcoinAccount, profitAccountName, balance, 0, function(err, result){
-              if (err) {
-                logger.error(err);
-              }else{
-                logger.log('Profits moved to dividend account. '+result);
-              }
-            });
-          }
-        });
-
-        fs.unlink(thisItem.upload.path, function (err) {
-          if (err) throw err;
-          logger.log('successfully deleted file.');
-        });
-      });
-
-    });
+    deleteExpiredFiles(collection);
   }, null, true);    
 
   //every 10 seconds check if payment is received
@@ -110,10 +70,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
-        //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-          //if (!error && response.statusCode == 200) {
-            //var json = JSON.parse(body);
-            //var balance = json.total_received / 100000000;
           if (!err) {
 
             //logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
@@ -234,14 +190,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var bitcoindAccount = addressacc.substring(addressacc.indexOf('&account=') + 9);
 
         //check payment is received
-        //client.cmd('getbalance', address, 0, function(err, balance){ //this doesn't work as it's based on account not addresses
-        //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
-
         client.getBalance(bitcoindAccount, 0, function(err, balance) {
-        //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-          //if (!error && response.statusCode == 200) {
-            //var json = JSON.parse(body);
-            //var balance = json.total_received / 100000000;
           if (!err) {
 
             collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
@@ -272,9 +221,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     });
 
                     //make bitcoin payments: referralBTCPrice to the referralBTCAddress, 50% of what is left to the downloaded file's fee address, and the rest to the owner.
-                    //to deal with transaction fees this will have to pay out only once there is a high enough balance.
+                    //to deal with transaction fees this will have to pay out only once there is a high enough balance. TODO limit min transactions / batch them
                     //payments can be queued and batched once a certain threshold is reached.
-                    //TODO
 
                     var txfees = 1 * baseTxFee;
                     var referralFee = item.referralBTCPrice - txfees; //has to pay fee
@@ -282,7 +230,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     var profitFee = (balance - referralFee) / 2; //no need to pay fee
                     
 
-                    //TODO - send fee to uploader
+                    //send fee to uploader
                     client.cmd('sendfrom', bitcoindAccount, item.referralBTCAddress, referralFee, 0, function(err, result){
                       if (err) {
                         logger.error(err);
@@ -291,7 +239,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       }
                     });
 
-                    //TODO - move 50% of remainder to uploaded item's expiry extension account
+                    //move 50% of remainder to uploaded item's expiry extension account
                     client.cmd('move', bitcoindAccount, item.bitcoinAccount, uploadExtentionFee, 0, function(err, result){
                       if (err) {
                         logger.error(err);
@@ -300,7 +248,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                       }
                     });
 
-                    //TODO - move rest to profit account
+                    //move rest to profit account
                     client.cmd('move', bitcoindAccount, item.bitcoinAccount, profitFee, 0, function(err, result){
                       if (err) {
                         logger.error(err);
@@ -385,12 +333,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                   var myInterval = setInterval(function() {
 
                     //if payment not made delete the download address
-                    //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
                     client.getBalance(bitcoindAccount, 0, function(err, balance) {
-                    //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-                      //if (!error && response.statusCode == 200) {
-                        //var json = JSON.parse(body);
-                        //var balance = json.total_received / 100000000;
                       if (!err) { 
 
                         if (balance < item.btcDownloadCost){  //not paid
@@ -426,15 +369,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
 
               //Don't let file be downloaded if nothing has been paid.
-              //var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
-              //request(blockchainurl, function (error, response, body) {
-              logger.debug('Account = ' + item.bitcoinAccount);
+              //logger.debug('Account = ' + item.bitcoinAccount);
 
               client.getBalance(item.bitcoinAccount, 0, function(err, balance) {
-              //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-                //if (!error && response.statusCode == 200) {
-                  //var json = JSON.parse(body);
-                  //var balance = json.total_received / 100000000;
                 if (!err) {
 
                   if (balance == 0){
@@ -589,7 +526,46 @@ function settxfee(btc){
   });
 }
 
+function deleteExpiredFiles(collection){
+  collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
 
+      collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
+        if(items.length > 0){
+          logger.log(items.length + ' expired files deleted.');
+        }
+      });
+
+      //remove the actual files from disk
+      items.forEach(function(thisItem) {
+
+        
+        //send btc profits for that account to owner
+        //get balance
+        client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
+          if (err) {
+            logger.error(err);
+          }else if (balance == 0){
+            logger.log('No bitcoins paid for this expired file.');
+          }else{
+            //move balance
+            client.cmd('move', thisItem.bitcoinAccount, profitAccountName, balance, 0, function(err, result){
+              if (err) {
+                logger.error(err);
+              }else{
+                logger.log('Profits moved to dividend account. '+result);
+              }
+            });
+          }
+        });
+
+        fs.unlink(thisItem.upload.path, function (err) {
+          if (err) throw err;
+          logger.log('successfully deleted file.');
+        });
+      });
+
+    });
+}
 
 
 
