@@ -151,6 +151,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
+          file.bitcoinAccount = address;
 
           file.btcDownloadCost = Math.max(file.referralBTCPrice * margin, (file.upload.size / 1000000 / minutesPerBTCPerMB * minutesBurnedPerDownload * margin) + parseFloat(file.referralBTCPrice));//max of referral * margin or (our base costs + referral price) * margin - accounts for very low referral cost uploads.
 
@@ -175,9 +176,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             thisItem.serverTime = new Date().getTime();
             thisItem.downloadURL = '/download/' + id;
             thisItem.statusURL = '/status/' + id;
-            thisItem.bitcoinAccount = thisItem.bitcoinAddress;
-
-            logger.debug(thisItem.bitcoinAccount);
 
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
