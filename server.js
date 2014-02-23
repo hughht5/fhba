@@ -129,7 +129,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               //update balance in DB
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
                 if (err) return logger.error(err);
-                logger.log('BTC balance updated for wallet ID ' + thisbitcoinAddress + ' - new balance: ' + balance)
+                logger.log('BTC balance updated for account ID ' + thisbitcoinAccount + ' - new balance: ' + balance)
               });
 
               //extend expiry time by correct amount.
