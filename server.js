@@ -78,7 +78,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var filesize = items[i].upload.size/1000000; //size in MB
         var thisbitcoinAddress = items[i].bitcoinAddress;
         var thisbitcoinAccount = items[i].bitcoinAccount;
-        logger.debug(thisbitcoinAccount);
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
@@ -145,13 +144,15 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       	//store expiry time 30 minutes in the future
         file.expiryTime = new Date().getTime() + (30*60*1000);
 
+        //set account name to current time - TODO update this to something more sensible
+        file.bitcoinAccount = '' + new Date().getTime();//
+
         //generate new bitcoin address for payments
-        client.cmd('getnewaddress',function(err,address){
+        client.cmd('getnewaddress', file.bitcoinAccount,function(err,address){
           if (err) return logger.log(err);
 
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
-          file.bitcoinAccount = address;
 
           file.btcDownloadCost = Math.max(file.referralBTCPrice * margin, (file.upload.size / 1000000 / minutesPerBTCPerMB * minutesBurnedPerDownload * margin) + parseFloat(file.referralBTCPrice));//max of referral * margin or (our base costs + referral price) * margin - accounts for very low referral cost uploads.
 
