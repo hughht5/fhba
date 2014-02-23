@@ -272,6 +272,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                     //send fee to uploader TODO
 
+                    console.log(item);
+
                     //move 50% of remainder to uploaded item's expiry extension account
                     /*client.cmd('move', bitcoindAccount, thisItem.bitcoinAccount, referralBTCPrice, 0, function(err, result){
                       if (err) {
