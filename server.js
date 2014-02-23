@@ -125,7 +125,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
                 if (err) return logger.error(err);
-                logger.log('Extended expiry time by ' + minutesToExtend + 'minutes.');
+                logger.log('Extended expiry time by ' + minutesToExtend + ' minutes.');
               });
 
             }
@@ -273,13 +273,13 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     //send fee to uploader TODO
 
                     //move 50% of remainder to uploaded item's expiry extension account
-                    client.cmd('move', bitcoindAccount, thisItem.bitcoinAccount, referralBTCPrice, 0, function(err, result){
+                    /*client.cmd('move', bitcoindAccount, thisItem.bitcoinAccount, referralBTCPrice, 0, function(err, result){
                       if (err) {
                         logger.error(err);
                       }else{
                         logger.log('Profits moved to dividend account.'+result);
                       }
-                    });
+                    });//*/
 
                     //move rest to profit account
 
@@ -317,145 +317,145 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       if (fileID.length == 24){
         collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
 
-            if (item != null){
+          if (item != null){
 
 
-              //two file types: 1 - prepaid by uploader, anyone who downloads pays and proceeds are split between admin, program (expiry extension), and uploader
-              if (btcAddr.validate(item.referralBTCAddress)){ //if referral address exists.
+            //two file types: 1 - prepaid by uploader, anyone who downloads pays and proceeds are split between admin, program (expiry extension), and uploader
+            if (btcAddr.validate(item.referralBTCAddress) || btcAddr.validate(item.referralBTCAddress,'testnet')){ //if referral address exists. (prod or testnet)
 
-                //Create new btcaddress for downloader with 15 minutes to pay
-                //After payment the user can download using currentURL?payment=NewBitcoinAddress
-                //attach address to account:
-                var bitcoindAccount = fileID+(new Date().getTime());
-                client.cmd('getnewaddress', bitcoindAccount, function(err,address){
+              //Create new btcaddress for downloader with 15 minutes to pay
+              //After payment the user can download using currentURL?payment=NewBitcoinAddress
+              //attach address to account:
+              var bitcoindAccount = fileID+(new Date().getTime());
+              client.cmd('getnewaddress', bitcoindAccount, function(err,address){
+                if (err) return console.log(err);
+
+                collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                   if (err) return console.log(err);
 
-                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $push: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
+                  if(doc != 1){
+                    console.log('Error - ' + doc);
+                    return;
+                  }
+
+                  console.log("Added address " + address + "to file.");
+
+                  var responseItem = {
+                    amountToPay: item.btcDownloadCost,
+                    timeToPay: '15 minutes',
+                    paymentAddress: address,
+                    downloadLink: '/download/' + fileID + '/?payment=' + address + '&account=' + bitcoindAccount
+                  };
+
+                  //delete download address after 15 minutes if btc payment is not complete.
+                  var myTimeout = setTimeout(function() {
+                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
+                      if (err) return console.log(err);
+                      if(doc != 1) return console.log('Error - ' + doc);
+                      console.log('Added new address for download payment');
+                    });
+                  }, 15 * 60 * 1000); //15 minutes
+
+                  var x=0;
+                  var myInterval = setInterval(function() {
+
+                    //if payment not made delete the download address
+                    //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+                    client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+                    //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+                      //if (!error && response.statusCode == 200) {
+                        //var json = JSON.parse(body);
+                        //var balance = json.total_received / 100000000;
+                      if (!err) { 
+
+                        if (balance < item.btcDownloadCost){  //not paid
+                          //if 15 minutes past then address will be deleted by timeout above.
+                          
+                          //if 15 minutes past then stop this interval
+                          if(x >= 90){
+                            clearInterval(myInterval); //stop this interval being called again.
+                          }
+                          
+                          x++;
+
+                        }
+                      }else{
+                        logger.error(err);
+                        res.writeHead(200, {'content-type': 'text/plain'});
+                        res.write('Error. Cannot connect to bitcoind');
+                        return res.end();
+                      }
+                    });
+
+                  }, 10 * 1000); //10 seconds
+
+                  res.writeHead(200, {'content-type': 'application/json'});
+                  res.write(JSON.stringify(responseItem));
+                  return res.end();
+
+                });
+              });
+
+
+            }else{ //two file types: 2 - prepaid by uploader, and expiry time decreases as time goes on.
+
+
+              //Don't let file be downloaded if nothing has been paid.
+              //var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
+              //request(blockchainurl, function (error, response, body) {
+              logger.debug('Account = ' + item.bitcoinAccount);
+
+              client.getBalance(item.bitcoinAccount, 0, function(err, balance) {
+              //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+                //if (!error && response.statusCode == 200) {
+                  //var json = JSON.parse(body);
+                  //var balance = json.total_received / 100000000;
+                if (!err) {
+
+                  if (balance == 0){
+                    res.writeHead(200, {'content-type': 'text/plain'});
+                    res.write('Please make payment first.');
+                    return res.end();
+                  }
+
+                  //Reduce expiry time by bandwidth charge/cost
+                  minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
+                  collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
                     if (err) return console.log(err);
 
                     if(doc != 1){
                       console.log('Error - ' + doc);
                       return;
-                    }
+                    }   
 
-                    console.log("Added address " + address + "to file.");
+                    //download file
+                    console.log('Downloading : ' + item.upload.path);
 
-                    var responseItem = {
-                      amountToPay: item.btcDownloadCost,
-                      timeToPay: '15 minutes',
-                      paymentAddress: address,
-                      downloadLink: '/download/' + fileID + '/?payment=' + address + '&account=' + bitcoindAccount
-                    };
+                    var file = item.upload.path;
+                    var filename = path.basename(file);
+                    var mimetype = mime.lookup(file);
 
-                    //delete download address after 15 minutes if btc payment is not complete.
-                    var myTimeout = setTimeout(function() {
-                      collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
-                        if (err) return console.log(err);
-                        if(doc != 1) return console.log('Error - ' + doc);
-                        console.log('Added new address for download payment');
-                      });
-                    }, 15 * 60 * 1000); //15 minutes
+                    res.setHeader('Content-disposition', 'attachment; filename=' + filename);
+                    res.setHeader('Content-type', mimetype);
 
-                    var x=0;
-                    var myInterval = setInterval(function() {
+                    var filestream = fs.createReadStream(file);
+                    filestream.pipe(res);
 
-                      //if payment not made delete the download address
-                      //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
-                      client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
-                      //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-                        //if (!error && response.statusCode == 200) {
-                          //var json = JSON.parse(body);
-                          //var balance = json.total_received / 100000000;
-                        if (!err) { 
-
-                          if (balance < item.btcDownloadCost){  //not paid
-                            //if 15 minutes past then address will be deleted by timeout above.
-                            
-                            //if 15 minutes past then stop this interval
-                            if(x >= 90){
-                              clearInterval(myInterval); //stop this interval being called again.
-                            }
-                            
-                            x++;
-
-                          }
-                        }else{
-                          logger.error(err);
-                          res.writeHead(200, {'content-type': 'text/plain'});
-                          res.write('Error. Cannot connect to bitcoind');
-                          return res.end();
-                        }
-                      });
-
-                    }, 10 * 1000); //10 seconds
-
-                    res.writeHead(200, {'content-type': 'application/json'});
-                    res.write(JSON.stringify(responseItem));
-                    return res.end();
-
-                  });
-                });
-
-
-              }else{ //two file types: 2 - prepaid by uploader, and expiry time decreases as time goes on.
-
-
-                //Don't let file be downloaded if nothing has been paid.
-                //var blockchainurl = 'https://blockchain.info/address/'+item.bitcoinAddress+'?format=json';
-                //request(blockchainurl, function (error, response, body) {
-                logger.debug('Account = ' + item.bitcoinAccount);
-
-                client.getBalance(item.bitcoinAccount, 0, function(err, balance) {
-                //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-                  //if (!error && response.statusCode == 200) {
-                    //var json = JSON.parse(body);
-                    //var balance = json.total_received / 100000000;
-                  if (!err) {
-
-                    if (balance == 0){
-                      res.writeHead(200, {'content-type': 'text/plain'});
-                      res.write('Please make payment first.');
-                      return res.end();
-                    }
-
-                    //Reduce expiry time by bandwidth charge/cost
-                    minutesBurned = -1 * minutesBurnedPerDownload * 60 * 1000; //minutes to milliseconds
-                    collection.update({ '_id': new BSON.ObjectID(fileID) },{ $inc: { expiryTime: (minutesBurned) } }, function(err, doc){
-                      if (err) return console.log(err);
-
-                      if(doc != 1){
-                        console.log('Error - ' + doc);
-                        return;
-                      }   
-
-                      //download file
-                      console.log('Downloading : ' + item.upload.path);
-
-                      var file = item.upload.path;
-                      var filename = path.basename(file);
-                      var mimetype = mime.lookup(file);
-
-                      res.setHeader('Content-disposition', 'attachment; filename=' + filename);
-                      res.setHeader('Content-type', mimetype);
-
-                      var filestream = fs.createReadStream(file);
-                      filestream.pipe(res);
-
-                    }); 
-                  }else{
-                    logger.error(err);
-                    res.writeHead(200, {'content-type': 'text/plain'});
-                    res.write('Error.' + JSON.stringify(err));
-                    return res.end();
-                  }
-                });
-              }
-
-            }else{
-              res.writeHead(200, {'content-type': 'text/plain'});
-              res.write('File not found.');
-              return res.end();
+                  }); 
+                }else{
+                  logger.error(err);
+                  res.writeHead(200, {'content-type': 'text/plain'});
+                  res.write('Error.' + JSON.stringify(err));
+                  return res.end();
+                }
+              });
             }
+
+          }else{
+            res.writeHead(200, {'content-type': 'text/plain'});
+            res.write('File not found.');
+            return res.end();
+          }
 
         });
       }else{
