@@ -13,10 +13,10 @@ var formidable = require('formidable'),
     mongo = require('mongodb'),
     BSON = mongo.BSONPure,
     bitcoin = require('bitcoin'),
-    logly = require( 'logly' ),
+    logger = require( 'logly' ),
     config = require('./config');
 
-
+var logger = require('tracer').console();
 
 var minutesPerBTCPerMB = 1051200, //2 years in minutes
     minutesBurnedPerDownload = 10, //1 download = 10 minutes of storage. Size is accounted for already.
@@ -31,18 +31,18 @@ var client = new bitcoin.Client({
   pass: '123'
 }); 
 
-logly.name( 'bitcoin agent' );
-logly.mode( 'debug' );
+logger.name( 'bitcoin agent' );
+logger.mode( 'debug' );
 
 
-logly.log('Connecting to mongo');
+logger.log('Connecting to mongo');
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
 
 
   if(err) throw err; 
   collection = db.collection('uploadedFilesA');
 
-  logly.log('Connection to mongo complete');
+  logger.log('Connection to mongo complete');
 
   //collection.ensureIndex({expiryTime: 1});
 
@@ -69,7 +69,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
   var paymentCron = new cronJob('*/10 * * * * *', function(){
 
     collection.find().toArray(function(err, items) {
-      if (err) return logly.error(err);
+      if (err) return logger.error(err);
       
       for (var i=0; i<items.length; i++){
 
@@ -86,28 +86,28 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             var json = JSON.parse(body);
             var balance = json.total_received / 100000000;
 
-            logly.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
+            logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
 
 
             if (oldBalance != balance){
 
               //update balance in DB
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
-                if (err) return logly.error(err);
-                logly.log('BTC balance updated for wallet ID ' + thisbitcoinAddress + ' - new balance: ' + balance)
+                if (err) return logger.error(err);
+                logger.log('BTC balance updated for wallet ID ' + thisbitcoinAddress + ' - new balance: ' + balance)
               });
 
               //extend expiry time by correct amount.
               var btcDiff = balance - oldBalance;
               var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
-                if (err) return logly.error(err);
-                logly.log('Extended expiry time by ' + minutesToExtend);
+                if (err) return logger.error(err);
+                logger.log('Extended expiry time by ' + minutesToExtend);
               });
 
             }
           }else{
-            logly.error('Cannot connect to blockexplorer.com');
+            logger.error('Cannot connect to blockexplorer.com');
           }
 
         }); 
@@ -145,7 +145,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
-          if (err) return logly.log(err);
+          if (err) return logger.log(err);
 
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
@@ -229,7 +229,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                     //delete download url
                     collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
-                      if (err) return logly.error(err);
+                      if (err) return logger.error(err);
                       if(doc != 1) return console.log('Error - ' + doc);
 
                       console.log('Deleted download address after single paid download.');
@@ -258,7 +258,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               }
             });
           }else{
-            logly.error(error);
+            logger.error(error);
             res.writeHead(200, {'content-type': 'text/plain'});
             res.write('Error. Cannot connect to blockexplorer.com');
             return res.end();
