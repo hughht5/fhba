@@ -18,7 +18,7 @@ var formidable = require('formidable'),
 
 var logger = require('tracer').console();
 
-var minutesPerBTCPerMB = 1051200, //2 years in minutes
+var minutesPerBTCPerMB = 262800, //6 months in minutes
     minutesBurnedPerDownload = 10, //1 download = 10 minutes of storage. Size is accounted for already.
     margin = 1.5, //margin charged
     profitWallet = 'mwPt7uzoJjn9218KirVWvYPfHtvbBR7Kjs',
@@ -59,14 +59,16 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
       //remove the actual files from disk
       for (var i=0; i<items.length; i++){
+
+        var thisItem = items[i];
         //TODO send btc profits for that account to owner
         //get balance
-        client.getBalance(items[i].bitcoinAccount, 0, function(err, balance) {
+        client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
           if (err) {
             logger.error(err);
           }else{
             //move balance
-            client.cmd('move', items[i].bitcoinAccount, profitAccountName, function(err, result){
+            client.cmd('move', thisItem.bitcoinAccount, profitAccountName, function(err, result){
               if (err) {
                 logger.error(err);
               }else{
@@ -76,7 +78,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
           }
         });
 
-        fs.unlink(items[i].upload.path, function (err) {
+        fs.unlink(thisItem.upload.path, function (err) {
           if (err) throw err;
           console.log('successfully deleted file.');
         });
@@ -123,7 +125,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
               collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
                 if (err) return logger.error(err);
-                logger.log('Extended expiry time by ' + minutesToExtend);
+                logger.log('Extended expiry time by ' + minutesToExtend + 'minutes.');
               });
 
             }
