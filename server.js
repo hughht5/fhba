@@ -35,14 +35,14 @@ logly.name( 'bitcoin agent' );
 logly.mode( 'debug' );
 
 
-logly.info('Connecting to mongo');
+logly.log('Connecting to mongo');
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
 
 
   if(err) throw err; 
   collection = db.collection('uploadedFiles4');
 
-  logly.info('Connection to mongo complete');
+  logly.log('Connection to mongo complete');
 
   //collection.ensureIndex({expiryTime: 1});
 
