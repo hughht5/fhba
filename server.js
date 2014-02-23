@@ -31,8 +31,8 @@ var client = new bitcoin.Client({
   pass: '123'
 }); 
 
-logger.name( 'bitcoin agent' );
-logger.mode( 'debug' );
+//logger.name( 'bitcoin agent' );
+//logger.mode( 'debug' );
 
 
 logger.log('Connecting to mongo');
