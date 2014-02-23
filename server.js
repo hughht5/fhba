@@ -102,9 +102,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var thisbitcoinAddress = thisItem.bitcoinAddress;
         var thisbitcoinAccount = thisItem.bitcoinAccount;
 
-        //TODO - ERROR - 1 and 2 are out of sync due to async function. it all messes up soon as more than 1 file is there.
-        logger.debug('1 - ' + thisbitcoinAccount);
-
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
         //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
@@ -113,10 +110,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             //var balance = json.total_received / 100000000;
           if (!err) {
 
-            logger.debug('2 - ' + thisbitcoinAccount);
-
             //logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
-
 
             if (oldBalance != balance){
 
