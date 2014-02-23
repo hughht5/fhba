@@ -50,6 +50,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
   new cronJob('* * * * *', function(){
 
     collection.find({expiryTime: {$lt: new Date().getTime()}}).toArray(function(err, items) {
+
+      //TODO send btc profits for that account to owner
+
       collection.remove({expiryTime: {$lt: new Date().getTime()}}, function(err) {
         console.log(items.length + ' expired files deleted.');
       });
@@ -207,10 +210,14 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //check payment is received
         //client.cmd('getbalance', address, 0, function(err, balance){ //this doesn't work as it's based on account not addresses
-        request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
-          if (!error && response.statusCode == 200) {
-            var json = JSON.parse(body);
-            var balance = json.total_received / 100000000;
+        //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+
+        client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+        //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+          //if (!error && response.statusCode == 200) {
+            //var json = JSON.parse(body);
+            //var balance = json.total_received / 100000000;
+          if (!err) {
 
             collection.findOne({'_id':new BSON.ObjectID(fileID)}, function(err, item) {
               if (item != null){
@@ -262,7 +269,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               }
             });
           }else{
-            logger.error(error);
+            logger.error(err);
             res.writeHead(200, {'content-type': 'text/plain'});
             res.write('Error. Cannot connect to blockexplorer.com');
             return res.end();
@@ -319,11 +326,13 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     var myInterval = setInterval(function() {
 
                       //if payment not made delete the download address
-                      request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
-                        if (!error && response.statusCode == 200) {
-
-                          var json = JSON.parse(body);
-                          var balance = json.total_received / 100000000;
+                      //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
+                      client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+                      //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+                        //if (!error && response.statusCode == 200) {
+                          //var json = JSON.parse(body);
+                          //var balance = json.total_received / 100000000;
+                        if (!err) { 
 
                           if (balance < item.btcDownloadCost){  //not paid
                             //if 15 minutes past then address will be deleted by timeout above.
@@ -337,8 +346,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                           }
                         }else{
+                          logger.error(err);
                           res.writeHead(200, {'content-type': 'text/plain'});
-                          res.write('Error. Cannot connect to blockexplorer.com');
+                          res.write('Error. Cannot connect to bitcoind');
                           return res.end();
                         }
                       });
