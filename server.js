@@ -231,7 +231,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         //client.cmd('getbalance', address, 0, function(err, balance){ //this doesn't work as it's based on account not addresses
         //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
 
-        client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+        client.getBalance(bitcoindAccount, 0, function(err, balance) {
         //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
           //if (!error && response.statusCode == 200) {
             //var json = JSON.parse(body);
@@ -269,6 +269,21 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     //to deal with transaction fees this will have to pay out only once there is a high enough balance.
                     //payments can be queued and batched once a certain threshold is reached.
                     //TODO
+
+                    //send fee to uploader TODO
+
+                    //move 50% of remainder to uploaded item's expiry extension account
+                    client.cmd('move', bitcoindAccount, thisItem.bitcoinAccount, referralBTCPrice, 0, function(err, result){
+                      if (err) {
+                        logger.error(err);
+                      }else{
+                        logger.log('Profits moved to dividend account.'+result);
+                      }
+                    });
+
+                    //move rest to profit account
+
+                    
 
                   }else{
                     res.writeHead(200, {'content-type': 'text/plain'});
