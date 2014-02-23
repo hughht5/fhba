@@ -177,6 +177,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             thisItem.statusURL = '/status/' + id;
             thisItem.bitcoinAccount = thisItem.bitcoinAddress;
 
+            logger.debug(thisItem.bitcoinAccount);
+
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
             res.write(JSON.stringify(thisItem));
