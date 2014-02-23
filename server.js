@@ -77,14 +77,15 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
         var oldBalance = parseFloat(items[i].btcBalance);
         var filesize = items[i].upload.size/1000000; //size in MB
         var thisbitcoinAddress = items[i].bitcoinAddress;
+        var thisbitcoinAccount = items[i].bitcoinAccount;
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
-        //client.getBalance(items[i].bitcoinAddress, 0, function(err, balance) {
-        request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
-          if (!error && response.statusCode == 200) {
-
-            var json = JSON.parse(body);
-            var balance = json.total_received / 100000000;
+        client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+        //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
+          //if (!error && response.statusCode == 200) {
+            //var json = JSON.parse(body);
+            //var balance = json.total_received / 100000000;
+          if (!err) {
 
             logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
 
@@ -173,6 +174,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             thisItem.serverTime = new Date().getTime();
             thisItem.downloadURL = '/download/' + id;
             thisItem.statusURL = '/status/' + id;
+            thisItem.bitcoinAccount = thisItem.bitcoinAddress;
 
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
@@ -248,7 +250,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                 }else{
                   res.writeHead(200, {'content-type': 'text/plain'});
-                  res.write('No payment received.');
+                  res.write('No payment received or payment too small.');
                   return res.end();
                 }
               }else{
