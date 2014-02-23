@@ -58,9 +58,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       });
 
       //remove the actual files from disk
-      for (var i=0; i<items.length; i++){
+      items.forEach(function(thisItem) {
 
-        var thisItem = items[i];
+        
         //TODO send btc profits for that account to owner
         //get balance
         client.getBalance(thisItem.bitcoinAccount, 0, function(err, balance) {
@@ -82,7 +82,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
           if (err) throw err;
           console.log('successfully deleted file.');
         });
-      }
+      });
 
     });
   }, null, true);    
