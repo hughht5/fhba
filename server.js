@@ -26,7 +26,7 @@ var minutesPerBTCPerMB = 1051200, //2 years in minutes
 //connect to bitcoin daemon
 var client = new bitcoin.Client({
   host: 'localhost',
-  port: 19001,
+  port: 19011,
   user: 'admin1',
   pass: '123'
 }); 
