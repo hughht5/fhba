@@ -361,7 +361,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                     //if payment not made delete the download address
                     //request('https://blockchain.info/address/'+address+'?format=json', function (error, response, body) {
-                    client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+                    client.getBalance(bitcoindAccount, 0, function(err, balance) {
                     //request('https://blockchain.info/address/'+thisbitcoinAddress+'?format=json', function (error, response, body) {
                       //if (!error && response.statusCode == 200) {
                         //var json = JSON.parse(body);
