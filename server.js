@@ -13,7 +13,6 @@ var formidable = require('formidable'),
     mongo = require('mongodb'),
     BSON = mongo.BSONPure,
     bitcoin = require('bitcoin'),
-    logger = require( 'logly' ),
     config = require('./config');
 
 var logger = require('tracer').console();
@@ -369,7 +368,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     return;
                   }
 
-                  logger.log("Added address " + address + "to file.");
+                  logger.log("Added payment address " + address + "to uploaded file.");
 
                   var responseItem = {
                     amountToPay: item.btcDownloadCost,
