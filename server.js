@@ -78,7 +78,6 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             logger.error(err);
           }else if (balance == 0){
             logger.log('No bitcoins paid for this expired file.');
-          }
           }else{
             //move balance
             client.cmd('move', thisItem.bitcoinAccount, profitAccountName, balance, 0, function(err, result){
