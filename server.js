@@ -68,7 +68,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             logger.error(err);
           }else{
             //move balance
-            client.cmd('move', thisItem.bitcoinAccount, profitAccountName, function(err, result){
+            client.cmd('move', thisItem.bitcoinAccount, profitAccountName, balance, 0, function(err, result){
               if (err) {
                 logger.error(err);
               }else{
