@@ -87,19 +87,22 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     });
   }, null, true);    
 
-  //every 20 seconds check if payment is received
-  var paymentCron = new cronJob('*/20 * * * * *', function(){
+  //every 10 seconds check if payment is received
+  var paymentCron = new cronJob('*/10 * * * * *', function(){
 
     collection.find().toArray(function(err, items) {
       if (err) return logger.error(err);
       
       for (var i=0; i<items.length; i++){
 
-        var thisID = items[i]._id.toString();
-        var oldBalance = parseFloat(items[i].btcBalance);
-        var filesize = items[i].upload.size/1000000; //size in MB
-        var thisbitcoinAddress = items[i].bitcoinAddress;
-        var thisbitcoinAccount = items[i].bitcoinAccount;
+        var thisItem = items[i];
+        var thisID = thisItem._id.toString();
+        var oldBalance = parseFloat(thisItem.btcBalance);
+        var filesize = thisItem.upload.size/1000000; //size in MB
+        var thisbitcoinAddress = thisItem.bitcoinAddress;
+        var thisbitcoinAccount = thisItem.bitcoinAccount;
+
+        logger.debug('1 - ' + thisbitcoinAccount);
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
         client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
@@ -109,8 +112,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             //var balance = json.total_received / 100000000;
           if (!err) {
 
-            console.log(items[i]);
-            logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
+            logger.debug('1 - ' + thisbitcoinAccount);
+
+            //logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
 
 
             if (oldBalance != balance){
