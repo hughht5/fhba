@@ -23,6 +23,7 @@ var minutesPerBTCPerMB = 262800, //6 months in minutes
     margin = 1.5, //margin charged
     profitWallet = 'mwPt7uzoJjn9218KirVWvYPfHtvbBR7Kjs',
     profitAccountName = 'profits',
+    baseTxFee = 0.0001;
     collection = null;
 
 //connect to bitcoin daemon
@@ -32,6 +33,15 @@ var client = new bitcoin.Client({
   user: 'admin2',
   pass: '123'
 }); 
+
+client.cmd('settxfee', baseTxFee,function(err,result){
+  if (err){
+    logger.error('Error setting TX fee');
+    logger.error(err);
+  }else{
+    logger.log('TX fee set to ' + baseTxFee);
+  }
+});
 
 //logger.name( 'bitcoin agent' );
 //logger.mode( 'debug' );
@@ -72,7 +82,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
               if (err) {
                 logger.error(err);
               }else{
-                logger.log('Profits moved to dividend account.'+result);
+                logger.log('Profits moved to dividend account. '+result);
               }
             });
           }
@@ -270,21 +280,38 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     //payments can be queued and batched once a certain threshold is reached.
                     //TODO
 
-                    //send fee to uploader TODO
+                    var txfees = 1 * baseTxFee;
+                    var referralFee = item.referralBTCPrice - txfees; //has to pay fee
+                    var uploadExtentionFee = (balance - referralFee) / 2; //no need to pay fee
+                    var profitFee = (balance - referralFee) / 2; //no need to pay fee
+                    
 
-                    console.log(item);
-
-                    //move 50% of remainder to uploaded item's expiry extension account
-                    /*client.cmd('move', bitcoindAccount, thisItem.bitcoinAccount, referralBTCPrice, 0, function(err, result){
+                    //TODO - send fee to uploader
+                    client.cmd('sendfrom', bitcoindAccount, item.referralBTCAddress, referralFee, 0, function(err, result){
                       if (err) {
                         logger.error(err);
                       }else{
-                        logger.log('Profits moved to dividend account.'+result);
+                        logger.log('Referral paid to uploader. '+result);
                       }
-                    });//*/
+                    });
 
-                    //move rest to profit account
+                    //TODO - move 50% of remainder to uploaded item's expiry extension account
+                    client.cmd('move', bitcoindAccount, item.bitcoinAccount, uploadExtentionFee, 0, function(err, result){
+                      if (err) {
+                        logger.error(err);
+                      }else{
+                        logger.log('Payment made to extend expiry time. '+result);
+                      }
+                    });
 
+                    //TODO - move rest to profit account
+                    client.cmd('move', bitcoindAccount, item.bitcoinAccount, profitFee, 0, function(err, result){
+                      if (err) {
+                        logger.error(err);
+                      }else{
+                        logger.log('Profits moved to dividend account. '+result);
+                      }
+                    });
                     
 
                   }else{
@@ -340,7 +367,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     return;
                   }
 
-                  console.log("Added address " + address + "to file.");
+                  logger.log("Added address " + address + "to file.");
 
                   var responseItem = {
                     amountToPay: item.btcDownloadCost,
@@ -354,7 +381,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
                       if (err) return console.log(err);
                       if(doc != 1) return console.log('Error - ' + doc);
-                      console.log('Added new address for download payment');
+                      logger.log('Added new address for download payment');
                     });
                   }, 15 * 60 * 1000); //15 minutes
 
@@ -519,7 +546,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       '<p>This project is in alpha testing. Do not assume anything will work, it might swallow your money.</p>'+
       '<p>There are 2 ways of using this system:'+
       '<br/>1 : Upload a file, and pay for it to remain online. Every paid satoshi the file stays online for more time, every download the timer is cut short a bit.'+
-      '<br/>2 : Upload a file with a refferal bitcoin address and a price. Every time someone downloads it they will pay that price + 50%. The price you set is paid to the referral btc address each time someone pays to download, and the 50% goes towards hosting that file for longer.</p>'+
+      '<br/>2 : Upload a file with a refferal bitcoin address and a price. Every time someone downloads it they will pay that price + 50%. The price you set (-tx fees) is paid to the referral btc address each time someone pays to download, and the 50% goes towards hosting that file for longer.</p>'+
       '<input type="text" name="title">Enter a title (optional)<br>'+
       '<input type="text" name="referralBTCAddress">Enter a refferal address (optional)<br>'+
       '<input type="text" name="referralBTCPrice">Enter a refferal price (optional)<br>'+
