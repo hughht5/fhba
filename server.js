@@ -34,10 +34,15 @@ var client = new bitcoin.Client({
 logly.name( 'bitcoin agent' );
 logly.mode( 'debug' );
 
+
+logly.info('Connecting to mongo');
 MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) { 
+
 
   if(err) throw err; 
   collection = db.collection('uploadedFiles4');
+
+  logly.info('Connection to mongo complete');
 
   //collection.ensureIndex({expiryTime: 1});
 
@@ -140,7 +145,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
         //generate new bitcoin address for payments
         client.cmd('getnewaddress',function(err,address){
-          if (err) return console.log(err);
+          if (err) return logly.err(err);
 
           file.bitcoinAddress = address;
           file.btcBalance = 0.00000000;
@@ -224,7 +229,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
                     //delete download url
                     collection.update({ '_id': new BSON.ObjectID(fileID) },{ $pull: { downloadAddress: {address: address, paid: false, account: bitcoindAccount} } }, function(err, doc){
-                      if (err) return console.log(err);
+                      if (err) return logly.err(err);
                       if(doc != 1) return console.log('Error - ' + doc);
 
                       console.log('Deleted download address after single paid download.');
