@@ -26,7 +26,7 @@ var minutesPerBTCPerMB = 1051200, //2 years in minutes
 //connect to bitcoin daemon
 var client = new bitcoin.Client({
   host: 'localhost',
-  port: 8332,
+  port: config.bitcoinRPC.port,
   user: config.bitcoinRPC.user,
   pass: config.bitcoinRPC.password
 }); 
@@ -231,6 +231,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
                     });
 
                     //make bitcoin payments: referralBTCPrice to the referralBTCAddress, 50% of what is left to the downloaded file's fee address, and the rest to the owner.
+                    //to deal with transaction fees this will have to pay out only once there is a high enough balance.
+                    //payments can be queued and batched once a certain threshold is reached.
                     //TODO
 
                   }else{
