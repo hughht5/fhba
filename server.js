@@ -93,15 +93,16 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
     collection.find().toArray(function(err, items) {
       if (err) return logger.error(err);
       
-      for (var i=0; i<items.length; i++){
+      //for (var i=0; i<items.length; i++){
+      items.forEach(function(thisItem) {
 
-        var thisItem = items[i];
         var thisID = thisItem._id.toString();
         var oldBalance = parseFloat(thisItem.btcBalance);
         var filesize = thisItem.upload.size/1000000; //size in MB
         var thisbitcoinAddress = thisItem.bitcoinAddress;
         var thisbitcoinAccount = thisItem.bitcoinAccount;
 
+        //TODO - ERROR - 1 and 2 are out of sync due to async function. it all messes up soon as more than 1 file is there.
         logger.debug('1 - ' + thisbitcoinAccount);
 
         //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
