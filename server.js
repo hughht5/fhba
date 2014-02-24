@@ -55,49 +55,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
 
   //every 10 seconds check if payment is received
   var paymentCron = new cronJob('*/10 * * * * *', function(){
-
-    collection.find().toArray(function(err, items) {
-      if (err) return logger.error(err);
-      
-      //for (var i=0; i<items.length; i++){
-      items.forEach(function(thisItem) {
-
-        var thisID = thisItem._id.toString();
-        var oldBalance = parseFloat(thisItem.btcBalance);
-        var filesize = thisItem.upload.size/1000000; //size in MB
-        var thisbitcoinAddress = thisItem.bitcoinAddress;
-        var thisbitcoinAccount = thisItem.bitcoinAccount;
-
-        //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
-        client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
-          if (!err) {
-
-            //logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
-
-            if (oldBalance != balance){
-
-              //update balance in DB
-              collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
-                if (err) return logger.error(err);
-                logger.log('BTC balance updated for account ID ' + thisbitcoinAccount + ' - new balance: ' + balance)
-              });
-
-              //extend expiry time by correct amount.
-              var btcDiff = balance - oldBalance;
-              var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
-              collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
-                if (err) return logger.error(err);
-                logger.log('Extended expiry time by ' + minutesToExtend + ' minutes.');
-              });
-
-            }
-          }else{
-            logger.error('Cannot connect to blockchain.info');
-          }
-
-        }); 
-      });
-    });
+    checkPayments(collection);
   }, null, true);
 
 
@@ -567,6 +525,50 @@ function deleteExpiredFiles(collection){
     });
 }
 
+function checkPayments(collection){
+  collection.find().toArray(function(err, items) {
+    if (err) return logger.error(err);
+    
+    //for (var i=0; i<items.length; i++){
+    items.forEach(function(thisItem) {
+
+      var thisID = thisItem._id.toString();
+      var oldBalance = parseFloat(thisItem.btcBalance);
+      var filesize = thisItem.upload.size/1000000; //size in MB
+      var thisbitcoinAddress = thisItem.bitcoinAddress;
+      var thisbitcoinAccount = thisItem.bitcoinAccount;
+
+      //if bitcoin payment is received then extend expiry time by 1 minute / satoshi     
+      client.getBalance(thisbitcoinAccount, 0, function(err, balance) {
+        if (!err) {
+
+          //logger.debug('Balance for ' + thisbitcoinAddress + ' = ' + balance);
+
+          if (oldBalance != balance){
+
+            //update balance in DB
+            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $set: { btcBalance: (balance) } }, function(err, doc){
+              if (err) return logger.error(err);
+              logger.log('BTC balance updated for account ID ' + thisbitcoinAccount + ' - new balance: ' + balance)
+            });
+
+            //extend expiry time by correct amount.
+            var btcDiff = balance - oldBalance;
+            var minutesToExtend = btcDiff*minutesPerBTCPerMB/filesize;
+            collection.update({ '_id': new BSON.ObjectID(thisID) },{ $inc: { expiryTime: (minutesToExtend*60*1000) } }, function(err, doc){
+              if (err) return logger.error(err);
+              logger.log('Extended expiry time by ' + minutesToExtend + ' minutes.');
+            });
+
+          }
+        }else{
+          logger.error('Cannot connect to blockchain.info');
+        }
+
+      }); 
+    });
+  });
+}
 
 
 
