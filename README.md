@@ -23,7 +23,11 @@ params:
 Upload a file for pay / view. Each time someone wants to download it they have to pay you a referral fee.
 ```
 Path: /upload
-Params: [{name: upload, type: file}, {name: title, type: text, optional: true}, {name: referralBTCAddress, type: text}, {name: referralBTCPrice, type: text}]
+Params:
+ upload, type: file
+ title, type: text, optional
+ referralBTCAddress, type: text
+ referralBTCPrice, type: text
 ```
 
 
