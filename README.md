@@ -20,7 +20,7 @@ params:
  title, type: text, optional
 ```
 
-Upload a file for pay / view. Each time someone wants to download it they have to pay you a referral fee.
+Upload a file for pay / view. Each time someone wants to download it they have to pay you a referral fee plus a little extra to host the file for longer.
 ```
 Path: /upload
 Params:
@@ -28,6 +28,25 @@ Params:
  title, type: text, optional
  referralBTCAddress, type: text
  referralBTCPrice, type: text
+```
+
+View the status of a file
+```
+Path: /status/fileID
+```
+
+Download file on pay per MB/minute
+```
+Path: /download/fileID
+```
+
+
+Download file on pay per view
+```
+Path: /download/fileID
+
+- customer is presented with unique payment address. Once paid:
+Path: downloadLink provided from response
 ```
 
 
