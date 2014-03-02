@@ -20,7 +20,7 @@ var logger = require('tracer').console();
 var minutesPerBTCPerMB = 262800, //6 months in minutes
     minutesBurnedPerDownload = 10, //1 download = 10 minutes of storage. Size is accounted for already.
     margin = 1.5, //margin charged
-    profitWallet = 'mwPt7uzoJjn9218KirVWvYPfHtvbBR7Kjs',
+    profitWallet = '15N5XaCEpw3SBM1CqJamhvF3zhbfv2vLjG',
     profitAccountName = 'profits',
     baseTxFee = 0.0001;
     collection = null;
@@ -123,6 +123,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
             //send response to user
             res.writeHead(200, {'content-type': 'application/json'});
             res.write(JSON.stringify(thisItem));
+
             return res.end();
             
           });
@@ -436,7 +437,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
       '<form action="/upload" enctype="multipart/form-data" method="post">'+
       '<p>This project is in alpha testing. Do not assume anything will work, it might swallow your money.</p>'+
       '<p>There are 2 ways of using this system:'+
-      '<br/>1 : Upload a file, and pay for it to remain online. Every paid satoshi the file stays online for more time, every download the timer is cut short a bit.'+
+      '<br/>1 : Upload a file, and pay for it to remain online. Every paid satoshi the file stays online for more time, every download the timer is cut short a bit to cover bandwidth costs.'+
       '<br/>2 : Upload a file with a refferal bitcoin address and a price. Every time someone downloads it they will pay that price + 50%. The price you set (-tx fees) is paid to the referral btc address each time someone pays to download, and the 50% goes towards hosting that file for longer.</p>'+
       '<input type="text" name="title">Enter a title (optional)<br>'+
       '<input type="text" name="referralBTCAddress">Enter a refferal address (optional)<br>'+
