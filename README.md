@@ -15,7 +15,9 @@ There are 2 ways to use this program:
 Upload a file and pay per minute / MB. Anyone with the link can download the file. This is good for short term file hosting / sharing.
 ```
 /upload
-params: [{name: upload, type: file}, {name: title, type: text, optional: true}]
+params: 
+ upload, type: file
+ title, type: text, optional
 ```
 
 Upload a file for pay / view. Each time someone wants to download it they have to pay you a referral fee.
