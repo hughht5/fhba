@@ -65,6 +65,8 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', function(err, db) {
   //create http server
   http.createServer(function(req, res) {
 
+    logger.log('Hit');
+
     if (req.url == '/upload' && req.method.toLowerCase() == 'post') {
       // parse a file upload
       var form = new formidable.IncomingForm();
