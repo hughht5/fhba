@@ -1,9 +1,6 @@
 var config = {};
 
-config.bitcoinRPC = {};
-
-config.bitcoinRPC.user_name = 'admin1';
-config.bitcoinRPC.password= '123';
-config.bitcoinRPC.port= 8332;
+config.user_name = 'admin1';
+config.password= '123';
 
 module.exports = config;
